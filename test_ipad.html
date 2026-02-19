@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test iPad</title>
+</head>
+<body>
+    <h1>TEST IPAD</h1>
+    
+    <!-- Zone de logs TOUJOURS visible -->
+    <div id="log" style="position:fixed;bottom:0;left:0;right:0;height:150px;background:#000;color:#0f0;font-family:monospace;padding:10px;overflow-y:auto;border-top:2px solid #0f0;">
+        <strong style="color:#ff0;">DEBUG LOGS:</strong><br>
+        <div id="logContent">Chargement...</div>
+    </div>
+    
+    <!-- Test 1 : Div cliquable -->
+    <div onclick="test1()" style="margin:20px;padding:20px;background:#4CAF50;color:white;cursor:pointer;font-size:20px;">
+        TEST 1 : Cliquez ici (DIV onclick)
+    </div>
+    
+    <!-- Test 2 : Bouton cliquable -->
+    <button onclick="test2()" style="margin:20px;padding:20px;background:#2196F3;color:white;font-size:20px;width:90%;">
+        TEST 2 : Cliquez ici (BUTTON)
+    </button>
+    
+    <!-- Test 3 : Lien cliquable -->
+    <a href="javascript:test3()" style="display:block;margin:20px;padding:20px;background:#FF9800;color:white;text-decoration:none;font-size:20px;">
+        TEST 3 : Cliquez ici (LINK)
+    </a>
+    
+    <script>
+        let logDiv = document.getElementById('logContent');
+        
+        function log(msg) {
+            logDiv.innerHTML += '<br>' + new Date().toLocaleTimeString() + ' - ' + msg;
+            logDiv.parentElement.scrollTop = logDiv.parentElement.scrollHeight;
+        }
+        
+        // Test au chargement
+        window.onload = function() {
+            log('✅ JavaScript fonctionne !');
+            log('✅ window.onload déclenché');
+            log('📱 User Agent: ' + navigator.userAgent.substring(0, 50));
+        };
+        
+        function test1() {
+            log('✅ TEST 1 : DIV onclick fonctionne !');
+        }
+        
+        function test2() {
+            log('✅ TEST 2 : BUTTON fonctionne !');
+        }
+        
+        function test3() {
+            log('✅ TEST 3 : LINK fonctionne !');
+        }
+        
+        // Log immédiat
+        log('🚀 Script démarre');
+    </script>
+</body>
+</html>
