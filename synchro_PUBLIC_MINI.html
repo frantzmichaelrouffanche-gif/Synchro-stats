@@ -1300,10 +1300,14 @@
         }
 
         function afficher() {
+            logVisible('🎨 afficher() appelée');
+            logVisible('📋 liste.length = ' + liste.length);
+            
             const recherche = (document.getElementById('search')?.value || '').toLowerCase();
             const paysFilt = document.getElementById('pays')?.value || '';
             const showAll = document.getElementById('showAllCompetitions')?.checked || false;
             
+            logVisible('🔍 Filtrage...');
             const filtrees = liste.filter(c => {
                 const ok1 = c.n.toLowerCase().includes(recherche) || c.l.toLowerCase().includes(recherche);
                 const ok2 = !paysFilt || c.p === paysFilt;
@@ -1324,10 +1328,19 @@
             // document.getElementById('totalPays').textContent = new Set(liste.map(c => c.p)).size; // Stats box removed
             // document.getElementById('totalResultats').textContent = resultats.length; // Stats box removed
             
+            logVisible('✅ Après filtrage: ' + filtrees.length + ' compétitions');
+            
             const grid = document.getElementById('grid');
+            if (!grid) {
+                logVisible('❌ Element grid introuvable !');
+                return;
+            }
+            logVisible('✅ Element grid trouvé');
             grid.innerHTML = '';
             
+            logVisible('🔄 Début boucle forEach');
             filtrees.forEach(c => {
+                logVisible('  → Création carte: ' + c.n);
                 const aRes = resultats.some(r => String(r.compId) === String(c.id));
                 
                 // Couleurs par type de compétition (noms EXACTS)
