@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système Synchro 2025-26 v104</title>
+    <title>Système Synchro 2025-26 v105</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -952,6 +952,19 @@
         }
 
         window.onload = function() {
+            // Seed localStorage from embedded data if empty (fresh browser / mobile external browser)
+            try {
+                if (!localStorage.getItem(DB_COMPS) && liste.length > 0) {
+                    localStorage.setItem(DB_COMPS, JSON.stringify(liste));
+                    console.log('✅ Données embarquées → localStorage (' + liste.length + ' comps)');
+                }
+                if (!localStorage.getItem(DB_RES) && resultats.length > 0) {
+                    localStorage.setItem(DB_RES, JSON.stringify(resultats));
+                    console.log('✅ Données embarquées → localStorage (' + resultats.length + ' résultats)');
+                }
+            } catch (e) {
+                console.warn('⚠️ Impossible de seeder le localStorage:', e.name);
+            }
             chargerDonnees();
             switchTab('calendar'); // Afficher le calendrier par défaut
         };
@@ -1204,8 +1217,7 @@
                 localStorage.setItem(DB_COMPS, JSON.stringify(liste));
                 console.log('✅ Competitions sauvegardées:', liste.length);
             } catch (e) {
-                console.error('❌ Erreur sauvegarde comps:', e);
-                alert('Erreur de sauvegarde des competitions');
+                console.warn('⚠️ Sauvegarde localStorage impossible (quota?):', e.name);
             }
         }
 
@@ -1215,8 +1227,7 @@
                 console.log('✅ Résultats sauvegardés:', resultats.length);
                 return true;
             } catch (e) {
-                console.error('❌ Erreur sauvegarde résultats:', e);
-                alert('Erreur de sauvegarde des résultats');
+                console.warn('⚠️ Sauvegarde localStorage impossible (quota?):', e.name);
                 return false;
             }
         }
