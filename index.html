@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système Synchro 2025-26 v106</title>
+    <title>Système Synchro 2025-26 v107</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -952,13 +952,18 @@
         }
 
         window.onload = function() {
-            // Seed localStorage from embedded data if empty (fresh browser / mobile external browser)
+            // Seed localStorage depuis les données embarquées
+            // Si localStorage est vide OU contient des données vides (ancienne session sans données)
             try {
-                if (!localStorage.getItem(DB_COMPS) && liste.length > 0) {
+                const storedComps = localStorage.getItem(DB_COMPS);
+                const storedRes = localStorage.getItem(DB_RES);
+                const compsEmpty = !storedComps || JSON.parse(storedComps).length === 0;
+                const resEmpty = !storedRes || JSON.parse(storedRes).length === 0;
+                if (compsEmpty && liste.length > 0) {
                     localStorage.setItem(DB_COMPS, JSON.stringify(liste));
                     console.log('✅ Données embarquées → localStorage (' + liste.length + ' comps)');
                 }
-                if (!localStorage.getItem(DB_RES) && resultats.length > 0) {
+                if (resEmpty && resultats.length > 0) {
                     localStorage.setItem(DB_RES, JSON.stringify(resultats));
                     console.log('✅ Données embarquées → localStorage (' + resultats.length + ' résultats)');
                 }
@@ -1158,8 +1163,14 @@
             try {
                 const compsStr = localStorage.getItem(DB_COMPS);
                 if (compsStr) {
-                    liste = JSON.parse(compsStr);
-                    console.log('✅ Competitions chargées:', liste.length);
+                    const parsed = JSON.parse(compsStr);
+                    // N'utiliser localStorage que si c'est non-vide (évite d'écraser les données embarquées)
+                    if (parsed.length > 0) {
+                        liste = parsed;
+                        console.log('✅ Competitions chargées (localStorage):', liste.length);
+                    } else {
+                        console.warn('⚠️ localStorage comps vide → données embarquées conservées (' + liste.length + ')');
+                    }
                 }
             } catch (e) {
                 console.error('Erreur chargement comps:', e);
@@ -1168,7 +1179,13 @@
             try {
                 const resStr = localStorage.getItem(DB_RES);
                 if (resStr) {
-                    resultats = JSON.parse(resStr);
+                    const parsed = JSON.parse(resStr);
+                    // N'utiliser localStorage que si c'est non-vide
+                    if (parsed.length > 0) {
+                        resultats = parsed;
+                    } else {
+                        console.warn('⚠️ localStorage résultats vide → données embarquées conservées (' + resultats.length + ')');
+                    }
                     console.log('✅ Résultats chargés:', resultats.length);
                     
                     // NETTOYAGE : Supprimer les résultats orphelins (sans compétition associée)
