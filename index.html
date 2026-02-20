@@ -1312,8 +1312,8 @@
                         <div style="color:#666;">📍 ${c.l}, ${c.p}</div>
                         <div style="margin-top:10px;">
                             <span style="background:${badgeColor};color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;">${c.t}</span>
-                            ${c.annulee ? '<span style="margin-left:5px;background:#f44336;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:bold;">🚫 ANNULÉE</span>' : ''}
-                            ${aRes ? '<span style="margin-left:5px;background:#4CAF50;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;">✓ Résultats</span>' : ''}
+                            ${c.annulee ? '<span style="margin-left:5px;background:#f44336;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;font-weight:bold;">🚫 CANCELLED</span>' : ''}
+                            ${aRes ? '<span style="margin-left:5px;background:#4CAF50;color:white;padding:4px 10px;border-radius:12px;font-size:0.85em;">✓ Results</span>' : ''}
                         </div>
                     </div>
                 `;
@@ -1360,7 +1360,6 @@
             }
             
             // VERSION PUBLIC : pas de résultats → ne rien faire
-            console.log('⚠️ Pas de résultats pour cette compétition');
             return;
         }
         
@@ -2624,7 +2623,7 @@
             const categoriesDisponibles = [...new Set(resultatsComp.map(r => r.cat))];
             
             let html = '<button class="btn btn-primary" onclick="ouvrirCompUpload(\'' + res.compId + '\')">← Back to competition</button>';
-            html += '<button class="btn" style="background:#FF9800;color:white;margin-left:10px;" onclick="ouvrirCompUpload(\'' + res.compId + '\')">📄 Manage PDFs</button>';
+            // Bouton Manage PDFs supprimé (version PUBLIC)
             html += '';
             
             // ===== INTERFACE DE RÉPARATION AUTO =====
@@ -4013,7 +4012,7 @@ if (rang === 1) rankBadge = rang;
             const skatingSkillsRankings = calculateSkatingSkillsRankings(protocol);
             
             let html = '<button class="btn btn-primary" onclick="ouvrirComp(\'' + res.compId + '\')">← Back to competition</button>';
-            html += '';
+            html += '<button class="btn btn-excel" onclick="exporterUnResultat(\'' + res.id + '\')" style="margin-left:10px;">📊 Exporter Excel</button>';
             html += '<div style="margin:20px 0;padding:15px;background:#e8f5e9;border-radius:8px;"><strong>✅ Detailed Analysis</strong> - ' + protocol.equipes.length + ' équipes - ' + numJudges + ' juges</div>';
             
             protocol.equipes.forEach(team => {
