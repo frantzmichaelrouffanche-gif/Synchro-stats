@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système Synchro 2025-26 v109</title>
+    <title>Système Synchro 2025-26 v110</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -149,8 +149,8 @@
         .team-section { margin: 30px 0; border: 2px solid #e0e0e0; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .team-header-detailed { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; }
         .team-title-detailed { font-size: 1.5em; margin-bottom: 15px; }
-        .team-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-        .score-box { background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; }
+        .team-scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
+        .score-box { background: rgba(255,255,255,0.2); padding: 8px; border-radius: 8px; }
         .score-box .label { font-size: 0.8em; opacity: 0.9; margin-bottom: 4px; }
         .score-box .value { font-size: 1.3em; font-weight: bold; }
         .score-box .rank { font-size: 0.9em; opacity: 0.95; margin-top: 2px; }
@@ -230,7 +230,13 @@
 
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
-            body { padding: 8px; }
+            body { padding: 4px; }
+            .team-section { padding: 12px !important; margin-bottom: 20px !important; }
+            .team-title-detailed { font-size: 1em !important; }
+            .score-box { min-width: 70px !important; padding: 6px 8px !important; }
+            .value { font-size: 1.1em !important; }
+            /* Details: éliminer marges laterales perdues */
+            .team-header-detailed { padding: 8px !important; }
 
             .header { padding: 15px; border-radius: 10px; }
             .header h1 { font-size: 1.2em; }
@@ -3095,13 +3101,14 @@ function switchSubTab(section, tab) {
                 totaux.sort((a, b) => b.total - a.total);
                 
                 // Afficher le tableau
-                html += '<table style="width:100%;border-collapse:collapse;margin-top:15px;"><thead><tr style="background:#f5f5f5;">';
-                html += '<th style="padding:12px;text-align:left;border:1px solid #ddd;">Rank</th>';
-                html += '<th style="padding:12px;text-align:left;border:1px solid #ddd;">Team</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">SP</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">FS</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Total</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Actions</th>';
+                html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">';
+                html += '<table style="width:100%;min-width:420px;border-collapse:collapse;margin-top:15px;"><thead><tr style="background:#f5f5f5;position:sticky;top:0;z-index:2;">';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Rank</th>';
+                html += '<th style="padding:8px 6px;text-align:left;border:1px solid #ddd;">Team</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">SP</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">FS</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Total</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;">Detail</th>';
                 html += '</tr></thead><tbody>';
                 
                 totaux.forEach((eq, idx) => {
@@ -3135,7 +3142,7 @@ if (rang === 1) rankBadge = rang;
                     html += '</tr>';
                 });
                 
-                html += '</tbody></table>';
+                html += '</tbody></table></div>';
                 html += '</div>';
             }
             
@@ -3145,13 +3152,14 @@ if (rang === 1) rankBadge = rang;
                 html += '<div style="background:white;padding:20px;border-radius:10px;margin:20px 0;border:2px solid #2196F3;">';
                 html += '<h3 style="color:#1e3c72;margin-top:0;">📘 ' + nomProg + '</h3>';
                 
-                html += '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f5f5f5;">';
-                html += '<th style="padding:12px;text-align:left;border:1px solid #ddd;">Rank</th>';
-                html += '<th style="padding:12px;text-align:left;border:1px solid #ddd;">Team</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Total Score</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Tech</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Prés</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Actions</th>';
+                html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">';
+                html += '<table style="width:100%;min-width:380px;border-collapse:collapse;"><thead><tr style="background:#f5f5f5;position:sticky;top:0;z-index:2;">';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Rank</th>';
+                html += '<th style="padding:8px 6px;text-align:left;border:1px solid #ddd;">Team</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Total</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Tech</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Prés</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;">Detail</th>';
                 html += '</tr></thead><tbody>';
                 
                 const equipesPC = [...resPC.data.equipes].sort((a, b) => b.total - a.total);
@@ -3192,7 +3200,7 @@ if (rang === 1) rankBadge = rang;
                     html += '</tr>';
                 });
                 
-                html += '</tbody></table>';
+                html += '</tbody></table></div>';
                 html += '</div>';
             }
             
@@ -3202,13 +3210,14 @@ if (rang === 1) rankBadge = rang;
                 html += '<div style="background:white;padding:20px;border-radius:10px;margin:20px 0;border:2px solid #4CAF50;">';
                 html += '<h3 style="color:#1e3c72;margin-top:0;">📗 ' + nomProg + '</h3>';
                 
-                html += '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f5f5f5;">';
-                html += '<th style="padding:12px;text-align:left;border:1px solid #ddd;">Rank</th>';
-                html += '<th style="padding:12px;text-align:left;border:1px solid #ddd;">Team</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Total Score</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Tech</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Prés</th>';
-                html += '<th style="padding:12px;text-align:center;border:1px solid #ddd;">Actions</th>';
+                html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">';
+                html += '<table style="width:100%;min-width:380px;border-collapse:collapse;"><thead><tr style="background:#f5f5f5;position:sticky;top:0;z-index:2;">';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Rank</th>';
+                html += '<th style="padding:8px 6px;text-align:left;border:1px solid #ddd;">Team</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Total</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Tech</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Prés</th>';
+                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;">Detail</th>';
                 html += '</tr></thead><tbody>';
                 
                 const equipesPL = [...resPL.data.equipes].sort((a, b) => b.total - a.total);
@@ -3247,7 +3256,7 @@ if (rang === 1) rankBadge = rang;
                     html += '</tr>';
                 });
                 
-                html += '</tbody></table>';
+                html += '</tbody></table></div>';
                 html += '</div>';
             }
             
@@ -3293,12 +3302,12 @@ if (rang === 1) rankBadge = rang;
             let html = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;min-width:600px;table-layout:fixed;">';
             html += '<colgroup>';
             html += '<col style="width:22px">';
-            html += '<col style="width:160px">';
+            html += '<col style="width:100px">';
             for (let j = 0; j < nbJuges; j++) html += `<col style="width:${colW}px">`;
             html += '</colgroup>';
-            html += '<thead><tr style="background:#f5f5f5;">';
-            html += '<th style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:0;background:#f5f5f5;z-index:2;text-align:center;font-size:0.8em;">#</th>';
-            html += '<th style="padding:6px 8px;border:1px solid #ddd;position:sticky;left:22px;background:#f5f5f5;z-index:2;width:160px;text-align:center;">Team</th>';
+            html += '<thead><tr style="background:#f5f5f5;position:sticky;top:0;z-index:3;">';
+            html += '<th style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:0;background:#f5f5f5;z-index:4;text-align:center;font-size:0.8em;">#</th>';
+            html += '<th style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:22px;background:#f5f5f5;z-index:4;width:100px;text-align:left;">Team</th>';
             
             for (let j = 1; j <= nbJuges; j++) {
                 html += `<th style="padding:6px 4px;border:1px solid #ddd;text-align:center;font-size:0.8em;">J${j}</th>`;
@@ -3312,7 +3321,7 @@ if (rang === 1) rankBadge = rang;
                 
                 html += `<tr>`;
                 html += `<td class="${bgClass}" style="padding:6px 4px;border:1px solid #ddd;text-align:center;position:sticky;left:0;z-index:1;width:22px;font-size:0.85em;">${rang}</td>`;
-                html += `<td class="${bgClass}" style="padding:6px 8px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:160px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;"><strong>${shortName(eq.nom)}</strong></td>`;
+                html += `<td class="${bgClass}" style="padding:4px 4px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:100px;max-width:100px;word-break:break-word;overflow-wrap:break-word;hyphens:auto;text-align:left;font-size:0.82em;"><strong>${shortName(eq.nom)}</strong></td>`;
                 
                 // Pour chaque juge
                 for (let j = 0; j < nbJuges; j++) {
@@ -3439,12 +3448,12 @@ if (rang === 1) rankBadge = rang;
             let html = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;min-width:600px;table-layout:fixed;">';
             html += '<colgroup>';
             html += '<col style="width:22px">';
-            html += '<col style="width:160px">';
+            html += '<col style="width:100px">';
             elementsOrdonnes.forEach(() => html += `<col style="width:${elColW}px">`);
             html += '</colgroup>';
-            html += '<thead><tr style="background:#f5f5f5;">';
-            html += '<th style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:0;background:#f5f5f5;z-index:2;text-align:center;font-size:0.8em;">#</th>';
-            html += '<th style="padding:6px 8px;border:1px solid #ddd;position:sticky;left:22px;background:#f5f5f5;z-index:2;width:160px;text-align:center;">Team</th>';
+            html += '<thead><tr style="background:#f5f5f5;position:sticky;top:0;z-index:3;">';
+            html += '<th style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:0;background:#f5f5f5;z-index:4;text-align:center;font-size:0.8em;">#</th>';
+            html += '<th style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:22px;background:#f5f5f5;z-index:4;width:100px;text-align:left;">Team</th>';
             
             elementsOrdonnes.forEach(type => {
                 html += `<th style="padding:6px 8px;border:1px solid #ddd;text-align:center;font-size:0.8em;">${type}</th>`;
@@ -3457,7 +3466,7 @@ if (rang === 1) rankBadge = rang;
                 
                 html += `<tr>`;
                 html += `<td class="${bgClass}" style="padding:6px 4px;border:1px solid #ddd;text-align:center;position:sticky;left:0;z-index:1;width:22px;font-size:0.85em;">${rang}</td>`;
-                html += `<td class="${bgClass}" style="padding:6px 8px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:160px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;"><strong>${shortName(eq.nom)}</strong></td>`;
+                html += `<td class="${bgClass}" style="padding:4px 4px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:100px;max-width:100px;word-break:break-word;overflow-wrap:break-word;hyphens:auto;text-align:left;font-size:0.82em;"><strong>${shortName(eq.nom)}</strong></td>`;
                 
                 elementsOrdonnes.forEach(type => {
                     // Pour ME/Pa, chercher ME ou Pa selon ce que l'équipe a
@@ -3599,7 +3608,7 @@ if (rang === 1) rankBadge = rang;
                 </div>`;
                 
                 html += `<div style="overflow-x:auto;margin-top:20px;">
-                    <table class="detailed-table" style="width:100%;min-width:800px;border-collapse:collapse;">
+                    <table class="detailed-table" style="width:100%;min-width:600px;border-collapse:collapse;">
                         <thead>
                             <tr style="background:#f5f5f5;">
                                 <th style="padding:10px;border:1px solid #ddd;text-align:left;">Element</th>
@@ -4434,7 +4443,7 @@ if (rang === 1) rankBadge = rang;
         }
         
         // ============================================
-        // SYSTÈME DE FUSION SUPPRIMÉ (v109)
+        // SYSTÈME DE FUSION SUPPRIMÉ (v110)
         // Remplacé par la détection intelligente + ajout d'équipes inconnues
         // ============================================
         
@@ -5291,6 +5300,10 @@ if (rang === 1) rankBadge = rang;
                     if (typeComp === 'Challenger Series' && !inclureChallenger) return;
                     if (typeComp === 'International' && !inclureInternational) return;
                     
+                    // Ignorer PC/PL si des SP/FS existent pour cette comp (évite doublons)
+                    const progNorm = res.prog === 'PC' ? 'SP' : res.prog === 'PL' ? 'FS' : res.prog;
+                    const isObsolete = (res.prog === 'PC' || res.prog === 'PL');
+                    
                     res.data.equipes.forEach(team => {
                         const nomCanonique = team.nom;
                         const cle = `${nomCanonique}_${res.compId}_${res.cat}`;
@@ -5303,12 +5316,24 @@ if (rang === 1) rankBadge = rang;
                                 compNom: comp.n,
                                 compType: typeComp,
                                 cat: res.cat,
-                                resultats: []
+                                resultats: [],
+                                hasNewFormat: false
                             };
                         }
                         
+                        // Si on reçoit SP/FS, marquer et supprimer les anciens PC/PL
+                        if (progNorm === 'SP' || progNorm === 'FS') {
+                            if (!totauxParComp[cle].hasNewFormat) {
+                                totauxParComp[cle].resultats = totauxParComp[cle].resultats.filter(r => r.prog === 'SP' || r.prog === 'FS');
+                                totauxParComp[cle].hasNewFormat = true;
+                            }
+                        }
+                        
+                        // Ne pas ajouter PC/PL si on a déjà SP/FS
+                        if (isObsolete && totauxParComp[cle].hasNewFormat) return;
+                        
                         totauxParComp[cle].resultats.push({
-                            prog: res.prog,
+                            prog: progNorm,
                             rang: team.rang,
                             total: team.total,
                             tech: team.tech,
@@ -5323,7 +5348,8 @@ if (rang === 1) rankBadge = rang;
                     const totalTech = item.resultats.reduce((sum, r) => sum + r.tech, 0);
                     const totalPres = item.resultats.reduce((sum, r) => sum + r.pres, 0);
                     const meilleurRang = Math.min(...item.resultats.map(r => r.rang));
-                    const programmes = item.resultats.map(r => r.prog).join(' + ');
+                    const progsUniques = [...new Set(item.resultats.map(r => r.prog))];
+                    const programmes = progsUniques.join('+');
                     
                     return {
                         equipe: item.equipe,
@@ -5454,7 +5480,7 @@ if (rang === 1) rankBadge = rang;
                 html += `<td style="padding:12px;">${r.nation}</td>`;
                 html += `<td style="padding:12px;"><span style="background:${badgeColor};color:white;padding:2px 8px;border-radius:8px;font-size:0.8em;">${r.compType}</span> ${r.compNom}</td>`;
                 html += `<td style="padding:12px;">${r.cat}</td>`;
-                html += `<td style="padding:12px;">${r.prog}</td>`;
+                html += `<td style="padding:12px;">${r.prog.replace(/PC/g,'SP').replace(/PL/g,'FS')}</td>`;
                 html += `<td style="padding:12px;text-align:center;">${r.rang}</td>`;
                 html += `<td style="padding:12px;text-align:right;font-weight:bold;font-size:1.1em;">${r.total.toFixed(2)}</td>`;
                 html += `<td style="padding:12px;text-align:right;">${r.tech.toFixed(2)}</td>`;
