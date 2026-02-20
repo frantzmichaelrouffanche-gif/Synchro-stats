@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système Synchro 2025-26 v107</title>
+    <title>Système Synchro 2025-26 v109</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -430,6 +430,37 @@
     </div>
 
     <script>
+
+        // ============================================================
+        // SAFESTORAGE : wrapper localStorage résistant au mode privé
+        // En Safari privé, localStorage lance SecurityError → on remplace
+        // localStorage par un objet en mémoire (session uniquement)
+        // ============================================================
+        const safeStorage = (function() {
+            let _mem = {};
+            let _canUse = false;
+            try {
+                localStorage.setItem('__test__', '1');
+                localStorage.removeItem('__test__');
+                _canUse = true;
+            } catch(e) {
+                console.warn('⚠️ localStorage inaccessible (mode privé ?), utilisation mémoire temporaire');
+            }
+            return {
+                getItem: function(k) {
+                    if (_canUse) { try { return localStorage.getItem(k); } catch(e) {} }
+                    return _mem[k] !== undefined ? _mem[k] : null;
+                },
+                setItem: function(k, v) {
+                    if (_canUse) { try { localStorage.setItem(k, v); } catch(e) {} }
+                    _mem[k] = v;
+                },
+                removeItem: function(k) {
+                    if (_canUse) { try { localStorage.removeItem(k); } catch(e) {} }
+                    delete _mem[k];
+                }
+            };
+        })();
 
         // Raccourcit le nom d'équipe pour l'affichage dans les tableaux
         function shortName(nom) {
@@ -952,26 +983,8 @@
         }
 
         window.onload = function() {
-            // Seed localStorage depuis les données embarquées
-            // Si localStorage est vide OU contient des données vides (ancienne session sans données)
-            try {
-                const storedComps = localStorage.getItem(DB_COMPS);
-                const storedRes = localStorage.getItem(DB_RES);
-                const compsEmpty = !storedComps || JSON.parse(storedComps).length === 0;
-                const resEmpty = !storedRes || JSON.parse(storedRes).length === 0;
-                if (compsEmpty && liste.length > 0) {
-                    localStorage.setItem(DB_COMPS, JSON.stringify(liste));
-                    console.log('✅ Données embarquées → localStorage (' + liste.length + ' comps)');
-                }
-                if (resEmpty && resultats.length > 0) {
-                    localStorage.setItem(DB_RES, JSON.stringify(resultats));
-                    console.log('✅ Données embarquées → localStorage (' + resultats.length + ' résultats)');
-                }
-            } catch (e) {
-                console.warn('⚠️ Impossible de seeder le localStorage:', e.name);
-            }
             chargerDonnees();
-            switchTab('calendar'); // Afficher le calendrier par défaut
+            switchTab('calendar');
         };
 
         function afficherDebug() {
@@ -988,8 +1001,8 @@
             html += '<strong>Results en mémoire:</strong> ' + resultats.length + '<br><br>';
             
             html += '<strong>localStorage:</strong><br>';
-            html += '- ' + DB_COMPS + ': ' + (localStorage.getItem(DB_COMPS) ? 'OUI' : 'NON') + '<br>';
-            html += '- ' + DB_RES + ': ' + (localStorage.getItem(DB_RES) ? 'OUI' : 'NON') + '<br><br>';
+            html += '- ' + DB_COMPS + ': ' + (safeStorage.getItem(DB_COMPS) ? 'OUI' : 'NON') + '<br>';
+            html += '- ' + DB_RES + ': ' + (safeStorage.getItem(DB_RES) ? 'OUI' : 'NON') + '<br><br>';
             
             if (resultats.length > 0) {
                 html += '<strong>DÉTAIL DES RÉSULTATS:</strong><br>';
@@ -1040,7 +1053,7 @@
             const MIGRATION_KEY = 'synchro_migrations_applied';
             let migrationsApplied;
             try {
-                migrationsApplied = JSON.parse(localStorage.getItem(MIGRATION_KEY) || '[]');
+                migrationsApplied = JSON.parse(safeStorage.getItem(MIGRATION_KEY) || '[]');
             } catch (e) {
                 // localStorage inaccessible (mode privé iOS, navigateur restrictif)
                 console.warn('⚠️ localStorage inaccessible, migrations ignorées:', e.name);
@@ -1051,7 +1064,7 @@
             // La team "Team Jeanne D'Arc Elite 12 FRA" avait été mal parsée en "Team Elite TUR"
             if (!migrationsApplied.includes('001_lumiere_jeanne_darc')) {
                 try {
-                    const resStr = localStorage.getItem(DB_RES);
+                    const resStr = safeStorage.getItem(DB_RES);
                     if (resStr) {
                         let data = JSON.parse(resStr);
                         const LUMIERE_COMP_ID = '1770193211192.4558';
@@ -1071,12 +1084,12 @@
                         });
 
                         if (changed) {
-                            localStorage.setItem(DB_RES, JSON.stringify(data));
+                            safeStorage.setItem(DB_RES, JSON.stringify(data));
                             console.log('✅ Migration 001 appliquée et sauvegardée');
                         }
                     }
                     migrationsApplied.push('001_lumiere_jeanne_darc');
-                    localStorage.setItem(MIGRATION_KEY, JSON.stringify(migrationsApplied));
+                    safeStorage.setItem(MIGRATION_KEY, JSON.stringify(migrationsApplied));
                 } catch (e) {
                     console.error('❌ Erreur migration 001:', e);
                 }
@@ -1088,7 +1101,7 @@
             // On supprime les PC/PL pour ne garder que SP/FS qui sont corrects.
             if (!migrationsApplied.includes('002_lumiere_remove_pcpl')) {
                 try {
-                    const resStr = localStorage.getItem(DB_RES);
+                    const resStr = safeStorage.getItem(DB_RES);
                     if (resStr) {
                         let data = JSON.parse(resStr);
                         const LUMIERE_COMP_ID = '1770193211192.4558';
@@ -1105,12 +1118,12 @@
                         });
 
                         if (data.length < avant) {
-                            localStorage.setItem(DB_RES, JSON.stringify(data));
+                            safeStorage.setItem(DB_RES, JSON.stringify(data));
                             console.log('✅ Migration 002 appliquée : ' + (avant - data.length) + ' entrée(s) supprimée(s)');
                         }
                     }
                     migrationsApplied.push('002_lumiere_remove_pcpl');
-                    localStorage.setItem(MIGRATION_KEY, JSON.stringify(migrationsApplied));
+                    safeStorage.setItem(MIGRATION_KEY, JSON.stringify(migrationsApplied));
                 } catch (e) {
                     console.error('❌ Erreur migration 002:', e);
                 }
@@ -1121,7 +1134,7 @@
             // Les entrées SP/FS n'ont jamais été corrigées car migration 001 était déjà marquée.
             if (!migrationsApplied.includes('003_lumiere_sp_fs_jeanne_darc')) {
                 try {
-                    const resStr = localStorage.getItem(DB_RES);
+                    const resStr = safeStorage.getItem(DB_RES);
                     if (resStr) {
                         let data = JSON.parse(resStr);
                         const LUMIERE_COMP_ID = '1770193211192.4558';
@@ -1141,12 +1154,12 @@
                         });
 
                         if (changed) {
-                            localStorage.setItem(DB_RES, JSON.stringify(data));
+                            safeStorage.setItem(DB_RES, JSON.stringify(data));
                             console.log('✅ Migration 003 appliquée');
                         }
                     }
                     migrationsApplied.push('003_lumiere_sp_fs_jeanne_darc');
-                    localStorage.setItem(MIGRATION_KEY, JSON.stringify(migrationsApplied));
+                    safeStorage.setItem(MIGRATION_KEY, JSON.stringify(migrationsApplied));
                 } catch (e) {
                     console.error('❌ Erreur migration 003:', e);
                 }
@@ -1157,88 +1170,16 @@
         }
 
         function chargerDonnees() {
-            // Appliquer les migrations AVANT de charger les données (erreurs ignorées silencieusement)
-            try { appliquerMigrations(); } catch (e) { console.warn('⚠️ Migrations ignorées:', e.name); }
-
-            try {
-                const compsStr = localStorage.getItem(DB_COMPS);
-                if (compsStr) {
-                    const parsed = JSON.parse(compsStr);
-                    // N'utiliser localStorage que si c'est non-vide (évite d'écraser les données embarquées)
-                    if (parsed.length > 0) {
-                        liste = parsed;
-                        console.log('✅ Competitions chargées (localStorage):', liste.length);
-                    } else {
-                        console.warn('⚠️ localStorage comps vide → données embarquées conservées (' + liste.length + ')');
-                    }
-                }
-            } catch (e) {
-                console.error('Erreur chargement comps:', e);
-            }
-            
-            try {
-                const resStr = localStorage.getItem(DB_RES);
-                if (resStr) {
-                    const parsed = JSON.parse(resStr);
-                    // N'utiliser localStorage que si c'est non-vide
-                    if (parsed.length > 0) {
-                        resultats = parsed;
-                    } else {
-                        console.warn('⚠️ localStorage résultats vide → données embarquées conservées (' + resultats.length + ')');
-                    }
-                    console.log('✅ Résultats chargés:', resultats.length);
-                    
-                    // NETTOYAGE : Supprimer les résultats orphelins (sans compétition associée)
-                    const avant = resultats.length;
-                    resultats = resultats.filter(r => {
-                        const compExiste = liste.some(c => String(c.id) === String(r.compId));
-                        if (!compExiste) {
-                            console.warn('⚠️ Résultat orphelin supprimé:', r.compId);
-                        }
-                        return compExiste;
-                    });
-                    
-                    if (resultats.length < avant) {
-                        console.log(`🧹 ${avant - resultats.length} résultat(s) orphelin(s) supprimé(s)`);
-                        sauvegarderResultats();
-                    }
-                }
-            } catch (e) {
-                console.error('Erreur chargement résultats:', e);
-            }
-            
-            // Charger les équipes personnalisées
-            try {
-                const equipesCustomStr = localStorage.getItem('synchro_equipes_custom');
-                if (equipesCustomStr) {
-                    const equipesCustom = JSON.parse(equipesCustomStr);
-                    Object.assign(equipesInternationales, equipesCustom);
-                    console.log('✅ Équipes personnalisées chargées:', Object.keys(equipesCustom).length);
-                }
-            } catch (e) {
-                console.error('Erreur chargement équipes personnalisées:', e);
-            }
-            
-            // Charger les fusions d'équipes
-            try {
-                const fusionsStr = localStorage.getItem('synchro_fusions_2025');
-                if (fusionsStr) {
-                    fusionsEquipes = JSON.parse(fusionsStr);
-                    console.log('✅ Fusions d\'équipes chargées:', fusionsEquipes.length);
-                }
-            } catch (e) {
-                console.error('Erreur chargement fusions:', e);
-            }
-            
-            // Appliquer Title Case rétroactif (corrige les anciennes données)
-            appliquerTitleCaseRetroactif();
-            
+            // VERSION PUBLIC : données embarquées uniquement, localStorage ignoré complètement
+            // Les variables 'liste' et 'resultats' sont initialisées dans le JS au chargement
+            // → fonctionne sur tous les appareils/navigateurs sans dépendance à l'historique du browser
+            console.log('📦 Données embarquées : ' + liste.length + ' comps, ' + resultats.length + ' résultats');
             afficher();
         }
 
         function sauvegarderComps() {
             try {
-                localStorage.setItem(DB_COMPS, JSON.stringify(liste));
+                safeStorage.setItem(DB_COMPS, JSON.stringify(liste));
                 console.log('✅ Competitions sauvegardées:', liste.length);
             } catch (e) {
                 console.warn('⚠️ Sauvegarde localStorage impossible (quota?):', e.name);
@@ -1247,7 +1188,7 @@
 
         function sauvegarderResultats() {
             try {
-                localStorage.setItem(DB_RES, JSON.stringify(resultats));
+                safeStorage.setItem(DB_RES, JSON.stringify(resultats));
                 console.log('✅ Résultats sauvegardés:', resultats.length);
                 return true;
             } catch (e) {
@@ -1610,10 +1551,10 @@
                 equipesInternationales[nomCorrect.trim()] = paysCorrect.toUpperCase();
                 
                 // Sauvegarder dans localStorage
-                const equipesCustomStr = localStorage.getItem('synchro_equipes_custom') || '{}';
+                const equipesCustomStr = safeStorage.getItem('synchro_equipes_custom') || '{}';
                 const equipesCustom = JSON.parse(equipesCustomStr);
                 equipesCustom[nomCorrect.trim()] = paysCorrect.toUpperCase();
-                localStorage.setItem('synchro_equipes_custom', JSON.stringify(equipesCustom));
+                safeStorage.setItem('synchro_equipes_custom', JSON.stringify(equipesCustom));
                 
                 resolve({
                     nom: nomCorrect.trim(),
@@ -3082,7 +3023,7 @@
                 });
                 
                 if (totalAjoutes > 0) {
-                    localStorage.setItem(DB_RES, JSON.stringify(resultats));
+                    safeStorage.setItem(DB_RES, JSON.stringify(resultats));
                     const resIdSauvegarde = res.id;
                     chargerDonnees(); // Recharge resultats depuis localStorage
                     const msg = erreurs.length > 0 
@@ -4493,14 +4434,14 @@ if (rang === 1) rankBadge = rang;
         }
         
         // ============================================
-        // SYSTÈME DE FUSION SUPPRIMÉ (v107)
+        // SYSTÈME DE FUSION SUPPRIMÉ (v109)
         // Remplacé par la détection intelligente + ajout d'équipes inconnues
         // ============================================
         
         function toggleStandardisation() {
             const checkbox = document.getElementById('standardiserCheckbox');
             standardiserNoms = checkbox.checked;
-            localStorage.setItem('synchro_standardiser', standardiserNoms.toString());
+            safeStorage.setItem('synchro_standardiser', standardiserNoms.toString());
             
             if (standardiserNoms) {
                 alert('✅ Standardisation activée !\n\nLes nouveaux protocoles PDF seront analysés avec les noms au format ISU international.\n\nPour appliquer aux protocoles déjà chargés, rechargez-les.');
@@ -4570,7 +4511,7 @@ if (rang === 1) rankBadge = rang;
                         }
                     });
                 });
-                localStorage.setItem(DB_RES, JSON.stringify(resultats));
+                safeStorage.setItem(DB_RES, JSON.stringify(resultats));
                 chargerDonnees();
                 alert(`✅ Pays mis à jour : ${ancienNom} → ${paysUpper} (${count} résultat(s))`);
                 afficherGestionEquipes();
@@ -4593,7 +4534,7 @@ if (rang === 1) rankBadge = rang;
                 });
             });
             
-            localStorage.setItem(DB_RES, JSON.stringify(resultats));
+            safeStorage.setItem(DB_RES, JSON.stringify(resultats));
             
             // Mettre à jour aussi dans la DB équipes
             if (equipesInternationales[ancienNom]) {
@@ -4623,7 +4564,7 @@ if (rang === 1) rankBadge = rang;
                 res.data.equipes.forEach((eq, idx) => eq.rang = idx + 1);
             });
             
-            localStorage.setItem(DB_RES, JSON.stringify(resultats));
+            safeStorage.setItem(DB_RES, JSON.stringify(resultats));
             chargerDonnees();
             alert(`✅ "${nom}" supprimée de ${count} résultat(s)`);
             afficherGestionEquipes();
@@ -4645,9 +4586,9 @@ if (rang === 1) rankBadge = rang;
             equipesInternationales[nom.trim()] = paysUpper;
             
             // Sauvegarder dans localStorage
-            const equipesPersonnalisees = JSON.parse(localStorage.getItem('synchro_equipes_custom') || '{}');
+            const equipesPersonnalisees = JSON.parse(safeStorage.getItem('synchro_equipes_custom') || '{}');
             equipesPersonnalisees[nom.trim()] = paysUpper;
-            localStorage.setItem('synchro_equipes_custom', JSON.stringify(equipesPersonnalisees));
+            safeStorage.setItem('synchro_equipes_custom', JSON.stringify(equipesPersonnalisees));
             
             alert(`✅ Équipe ajoutée !\n\n${nom} → ${paysUpper}\n\nCette équipe sera maintenant reconnue automatiquement.`);
             
@@ -5854,9 +5795,9 @@ if (rang === 1) rankBadge = rang;
                     fusionsEquipes = data.fusions || [];
                     
                     // Sauvegarder dans localStorage
-                    localStorage.setItem(DB_COMPS, JSON.stringify(liste));
-                    localStorage.setItem(DB_RES, JSON.stringify(resultats));
-                    localStorage.setItem('synchro_fusions_2025', JSON.stringify(fusionsEquipes));
+                    safeStorage.setItem(DB_COMPS, JSON.stringify(liste));
+                    safeStorage.setItem(DB_RES, JSON.stringify(resultats));
+                    safeStorage.setItem('synchro_fusions_2025', JSON.stringify(fusionsEquipes));
                     
                     alert(`✅ Données importées avec succès !\n\n📊 ${liste.length} competitions\n📄 ${resultats.length} résultats\n🔗 ${fusionsEquipes.length} fusions d'équipes\n\nDate de sauvegarde : ${new Date(data.date).toLocaleString()}`);
                     
@@ -5972,7 +5913,7 @@ if (rang === 1) rankBadge = rang;
             res.data.equipes[idx].nom = nouveauNom;
             res.data.equipes[idx].nation = nouvelleNation;
             
-            localStorage.setItem(DB_RES, JSON.stringify(resultats));
+            safeStorage.setItem(DB_RES, JSON.stringify(resultats));
             chargerDonnees();
             
             nomInput.style.background = '#e8f5e9';
@@ -5996,7 +5937,7 @@ if (rang === 1) rankBadge = rang;
             res.data.equipes.sort((a, b) => b.total - a.total);
             res.data.equipes.forEach((eq, i) => { eq.rang = i + 1; });
             
-            localStorage.setItem(DB_RES, JSON.stringify(resultats));
+            safeStorage.setItem(DB_RES, JSON.stringify(resultats));
             chargerDonnees();
             editeurChargerEquipes(); // Rafraîchir le tableau
             
@@ -6096,8 +6037,8 @@ if (rang === 1) rankBadge = rang;
         
         function clearData() {
             if (confirm('Effacer TOUTES les données ?')) {
-                localStorage.removeItem(DB_COMPS);
-                localStorage.removeItem(DB_RES);
+                safeStorage.removeItem(DB_COMPS);
+                safeStorage.removeItem(DB_RES);
                 liste = [];
                 resultats = [];
                 afficher();
