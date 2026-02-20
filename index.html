@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système Synchro 2025-26 v105</title>
+    <title>Système Synchro 2025-26 v106</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -1033,7 +1033,14 @@
         // ============================================
         function appliquerMigrations() {
             const MIGRATION_KEY = 'synchro_migrations_applied';
-            const migrationsApplied = JSON.parse(localStorage.getItem(MIGRATION_KEY) || '[]');
+            let migrationsApplied;
+            try {
+                migrationsApplied = JSON.parse(localStorage.getItem(MIGRATION_KEY) || '[]');
+            } catch (e) {
+                // localStorage inaccessible (mode privé iOS, navigateur restrictif)
+                console.warn('⚠️ localStorage inaccessible, migrations ignorées:', e.name);
+                return;
+            }
 
             // MIGRATION 001 : Lumière Cup - Team Elite TUR → Team Jeanne D'Arc FRA
             // La team "Team Jeanne D'Arc Elite 12 FRA" avait été mal parsée en "Team Elite TUR"
@@ -1145,8 +1152,8 @@
         }
 
         function chargerDonnees() {
-            // Appliquer les migrations AVANT de charger les données
-            appliquerMigrations();
+            // Appliquer les migrations AVANT de charger les données (erreurs ignorées silencieusement)
+            try { appliquerMigrations(); } catch (e) { console.warn('⚠️ Migrations ignorées:', e.name); }
 
             try {
                 const compsStr = localStorage.getItem(DB_COMPS);
