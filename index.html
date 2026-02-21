@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Système Synchro 2025-26 v110</title>
+    <title>Système Synchro 2025-26 v121</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -1177,8 +1177,19 @@
 
         function chargerDonnees() {
             // VERSION PUBLIC : données embarquées uniquement, localStorage ignoré complètement
-            // Les variables 'liste' et 'resultats' sont initialisées dans le JS au chargement
-            // → fonctionne sur tous les appareils/navigateurs sans dépendance à l'historique du browser
+            // Déduplication : si SP existe, supprimer PC pour la même comp+cat
+            //                 si FS existe, supprimer PL pour la même comp+cat
+            const spKeys = new Set(resultats.filter(r => r.prog === 'SP').map(r => r.compId + '|' + r.cat));
+            const fsKeys = new Set(resultats.filter(r => r.prog === 'FS').map(r => r.compId + '|' + r.cat));
+            const avant = resultats.length;
+            resultats = resultats.filter(r => {
+                if (r.prog === 'PC' && spKeys.has(r.compId + '|' + r.cat)) return false;
+                if (r.prog === 'PL' && fsKeys.has(r.compId + '|' + r.cat)) return false;
+                return true;
+            });
+            if (resultats.length < avant) {
+                console.log('🧹 ' + (avant - resultats.length) + ' doublon(s) PC/PL supprimé(s) (remplacés par SP/FS)');
+            }
             console.log('📦 Données embarquées : ' + liste.length + ' comps, ' + resultats.length + ' résultats');
             afficher();
         }
@@ -1520,6 +1531,483 @@
         function fermerModal() {
             document.getElementById('modal').classList.remove('active');
         }
+
+        // ============================================================
+        // PAGE ÉQUIPE — afficherPageEquipe(nomEquipe)
+        // ============================================================
+        function teamLink(nom) {
+            const safe = nom.replace(/'/g, "\\'");
+            return `<span onclick="afficherPageEquipe('${safe}')" style="cursor:pointer;" title="View team page">${nom}</span>`;
+        }
+        function teamLinkShort(nom) {
+            const safe = nom.replace(/'/g, "\\'");
+            return `<span onclick="afficherPageEquipe('${safe}')" style="cursor:pointer;" title="View team page">${shortName(nom)}</span>`;
+        }
+
+        function afficherPageEquipe(nomEquipe) {
+            const compMap = {};
+            liste.forEach(c => compMap[c.id] = c);
+
+            // Rassembler tous les résultats de cette équipe
+            const teamResults = [];
+            resultats.forEach(res => {
+                const comp = compMap[res.compId];
+                if (!comp) return;
+                res.data.equipes.forEach(eq => {
+                    if (eq.nom === nomEquipe) {
+                        teamResults.push({ res, comp, eq });
+                    }
+                });
+            });
+
+            if (teamResults.length === 0) {
+                alert('Aucun résultat trouvé pour ' + nomEquipe);
+                return;
+            }
+
+            const nation = teamResults[0].eq.nation;
+            const flagUrl = `https://flagcdn.com/24x18/${nation.toLowerCase()}.png`;
+
+            // Séparer par catégorie et programme
+            const spResults = teamResults.filter(x => x.res.prog === 'SP' || x.res.prog === 'PC');
+            const fsResults = teamResults.filter(x => x.res.prog === 'FS' || x.res.prog === 'PL');
+
+            // Season best SP et FS
+            const bestSP = spResults.reduce((best, x) => (!best || x.eq.total > best.eq.total) ? x : best, null);
+            const bestFS = fsResults.reduce((best, x) => (!best || x.eq.total > best.eq.total) ? x : best, null);
+            const bestTotal = (() => {
+                // Trouver le meilleur total SP+FS sur la même comp
+                const byComp = {};
+                spResults.forEach(x => { byComp[x.comp.id + '_' + x.res.cat] = { sp: x }; });
+                fsResults.forEach(x => {
+                    const key = x.comp.id + '_' + x.res.cat;
+                    if (byComp[key]) byComp[key].fs = x;
+                });
+                let best = null;
+                Object.values(byComp).forEach(pair => {
+                    if (pair.sp && pair.fs) {
+                        const t = pair.sp.eq.total + pair.fs.eq.total;
+                        if (!best || t > best.total) best = { total: t, sp: pair.sp, fs: pair.fs };
+                    }
+                });
+                return best;
+            })();
+
+            // Classement season best dans la catégorie
+            const cat = teamResults[0].res.cat;
+            const seasonBestAllTeams = {};
+            resultats.forEach(res => {
+                if (res.cat !== cat) return;
+                const comp = compMap[res.compId];
+                if (!comp) return;
+                const isSP = res.prog === 'SP' || res.prog === 'PC';
+                const isFS = res.prog === 'FS' || res.prog === 'PL';
+                res.data.equipes.forEach(eq => {
+                    if (!seasonBestAllTeams[eq.nom]) seasonBestAllTeams[eq.nom] = { sp: 0, fs: 0 };
+                    if (isSP && eq.total > seasonBestAllTeams[eq.nom].sp) seasonBestAllTeams[eq.nom].sp = eq.total;
+                    if (isFS && eq.total > seasonBestAllTeams[eq.nom].fs) seasonBestAllTeams[eq.nom].fs = eq.total;
+                });
+            });
+            const allSP = Object.entries(seasonBestAllTeams).map(([n,v]) => ({nom:n, score:v.sp})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+            const allFS = Object.entries(seasonBestAllTeams).map(([n,v]) => ({nom:n, score:v.fs})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+            const allTotal = Object.entries(seasonBestAllTeams).map(([n,v]) => ({nom:n, score:v.sp+v.fs})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+            const rankSP = allSP.findIndex(x=>x.nom===nomEquipe)+1;
+            const rankFS = allFS.findIndex(x=>x.nom===nomEquipe)+1;
+            const rankTotal = allTotal.findIndex(x=>x.nom===nomEquipe)+1;
+
+            // Score optimal théorique
+            const optimal = calcOptimal(nomEquipe, spResults, fsResults);
+
+            // ── Construction HTML ──────────────────────────────────────────
+            let html = `<button class="btn btn-primary" onclick="fermerModal()" style="margin-bottom:15px;">← Back</button>`;
+
+            // En-tête équipe
+            html += `<div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:20px;margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;">
+                    <div style="font-size:2.5em;">🏒</div>
+                    <div>
+                        <h2 style="margin:0;font-size:1.4em;">${nomEquipe}</h2>
+                        <div style="opacity:0.85;margin-top:4px;">${cat} · ${nation}</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-top:18px;">
+                    <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:0.75em;opacity:0.85;">Season Best SP</div>
+                        <div style="font-size:1.4em;font-weight:bold;">${bestSP ? bestSP.eq.total.toFixed(2) : '—'}</div>
+                        <div style="font-size:0.75em;opacity:0.75;">Rank ${rankSP || '—'}/${allSP.length}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:0.75em;opacity:0.85;">Season Best FS</div>
+                        <div style="font-size:1.4em;font-weight:bold;">${bestFS ? bestFS.eq.total.toFixed(2) : '—'}</div>
+                        <div style="font-size:0.75em;opacity:0.75;">Rank ${rankFS || '—'}/${allFS.length}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:0.75em;opacity:0.85;">Season Best Total</div>
+                        <div style="font-size:1.4em;font-weight:bold;">${bestTotal ? bestTotal.total.toFixed(2) : '—'}</div>
+                        <div style="font-size:0.75em;opacity:0.75;">Rank ${rankTotal || '—'}/${allTotal.length}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:0.75em;opacity:0.85;">Competitions</div>
+                        <div style="font-size:1.4em;font-weight:bold;">${new Set(teamResults.map(x=>x.comp.id)).size}</div>
+                        <div style="font-size:0.75em;opacity:0.75;">${teamResults.length} programs</div>
+                    </div>
+                </div>
+            </div>`;
+
+            // Tableau de tous les résultats (en premier)
+            html += genererTableauResultatsEquipe(teamResults, compMap, nomEquipe);
+
+            // Score optimal
+            if (optimal) {
+                html += genererSectionOptimal(optimal, bestSP, bestFS);
+            }
+
+            // Section éléments saison
+            html += genererSectionElementsSaison(nomEquipe, spResults, fsResults);
+
+            document.getElementById('modalTitle').textContent = nomEquipe;
+            document.getElementById('modalBody').innerHTML = html;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function calcOptimal(nomEquipe, spResults, fsResults) {
+            if (spResults.length === 0 && fsResults.length === 0) return null;
+
+            const calcProgOptimal = (results, prog) => {
+                if (results.length === 0) return null;
+                // Meilleur score par type d'élément
+                const bestElements = {};
+                let bestCompFinal = 0, bestPresFinal = 0, bestSkatFinal = 0;
+                let facteur = results[0].res.data.facteur;
+
+                results.forEach(({ res, eq }) => {
+                    facteur = res.data.facteur; // en général constant par programme
+                    eq.elements.forEach(el => {
+                        const key = el.type;
+                        if (!bestElements[key] || el.score > bestElements[key].score) {
+                            bestElements[key] = { ...el, compNom: '', compDate: '' };
+                        }
+                    });
+                    if (eq.composantes) {
+                        if ((eq.composantes.compFinal || 0) > bestCompFinal) bestCompFinal = eq.composantes.compFinal;
+                        if ((eq.composantes.presFinal || 0) > bestPresFinal) bestPresFinal = eq.composantes.presFinal;
+                        if ((eq.composantes.skatFinal || 0) > bestSkatFinal) bestSkatFinal = eq.composantes.skatFinal;
+                    }
+                });
+
+                const techOptimal = Object.values(bestElements).reduce((s, el) => s + el.score, 0);
+                const presOptimal = (bestCompFinal + bestPresFinal + bestSkatFinal) * facteur;
+                const totalOptimal = techOptimal + presOptimal;
+
+                // Meilleur réel pour comparaison
+                const bestReal = results.reduce((b, x) => (!b || x.eq.total > b.eq.total) ? x : b, null);
+
+                return {
+                    prog,
+                    totalOptimal,
+                    techOptimal,
+                    presOptimal,
+                    bestElements,
+                    bestCompFinal,
+                    bestPresFinal,
+                    bestSkatFinal,
+                    facteur,
+                    bestReal: bestReal ? bestReal.eq.total : 0
+                };
+            };
+
+            return {
+                sp: calcProgOptimal(spResults, 'SP'),
+                fs: calcProgOptimal(fsResults, 'FS')
+            };
+        }
+
+        function genererSectionOptimal(optimal, bestSP, bestFS) {
+            let html = `<div style="background:white;border-radius:12px;padding:18px;margin-bottom:20px;border:2px solid #FF9800;">
+                <h3 style="color:#1e3c72;margin-top:0;">🎯 Theoretical Optimal Score</h3>
+                <p style="color:#666;font-size:0.9em;margin-bottom:15px;">Best element score of the season for each element type + best presentation scores. Theoretical maximum if the team had achieved all its bests on the same day.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:15px;">`;
+
+            ['sp', 'fs'].forEach(prog => {
+                const o = optimal[prog];
+                if (!o) return;
+                const label = prog === 'sp' ? '📘 Short Program' : '📗 Free Skate';
+                const gain = o.totalOptimal - o.bestReal;
+                const color = prog === 'sp' ? '#2196F3' : '#4CAF50';
+                html += `<div style="border:1px solid ${color};border-radius:8px;padding:14px;">
+                    <div style="font-weight:bold;color:${color};margin-bottom:10px;">${label}</div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="color:#666;">Season Best</span>
+                        <strong>${o.bestReal.toFixed(2)}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="color:#666;">Optimal Technical</span>
+                        <strong>${o.techOptimal.toFixed(2)}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="color:#666;">Optimal Presentation</span>
+                        <strong>${o.presOptimal.toFixed(2)}</strong>
+                    </div>
+                    <div style="border-top:2px solid ${color};margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;">
+                        <span style="font-weight:bold;">Optimal Total</span>
+                        <strong style="font-size:1.2em;color:${color};">${o.totalOptimal.toFixed(2)}</strong>
+                    </div>
+                    <div style="text-align:right;margin-top:4px;font-size:0.85em;color:#4CAF50;">
+                        +${gain.toFixed(2)} potential
+                    </div>
+                </div>`;
+            });
+
+            // Optimal SP+FS combiné
+            if (optimal.sp && optimal.fs) {
+                const combinedOptimal = optimal.sp.totalOptimal + optimal.fs.totalOptimal;
+                const combinedBest = optimal.sp.bestReal + optimal.fs.bestReal;
+                const gainTotal = combinedOptimal - combinedBest;
+                html += `<div style="border:2px solid #FF9800;border-radius:8px;padding:14px;background:#fff8f0;">
+                    <div style="font-weight:bold;color:#FF9800;margin-bottom:10px;">🏆 Total SP+FS</div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="color:#666;">Best Combined</span>
+                        <strong>${combinedBest.toFixed(2)}</strong>
+                    </div>
+                    <div style="border-top:2px solid #FF9800;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;">
+                        <span style="font-weight:bold;">Optimal Total</span>
+                        <strong style="font-size:1.2em;color:#FF9800;">${combinedOptimal.toFixed(2)}</strong>
+                    </div>
+                    <div style="text-align:right;margin-top:4px;font-size:0.85em;color:#4CAF50;">+${gainTotal.toFixed(2)} potential</div>
+                </div>`;
+            }
+
+            html += `</div></div>`;
+            return html;
+        }
+
+        function genererTableauResultatsEquipe(teamResults, compMap, nomEquipe) {
+            const byComp = {};
+            teamResults.forEach(({ res, comp, eq }) => {
+                if (!byComp[comp.id]) byComp[comp.id] = { comp, progs: [] };
+                byComp[comp.id].progs.push({ res, eq });
+            });
+
+            const typeCouleur = {
+                'Regional': '#9c27b0', 'National': '#2196F3',
+                'International': '#4CAF50', 'Challenger Series': '#FF9800',
+                'Junior World Championships': '#f44336', 'World Championships': '#f44336'
+            };
+
+            let html = `<div style="background:white;border-radius:12px;padding:18px;margin-bottom:20px;border:2px solid #e0e0e0;">
+                <h3 style="color:#1e3c72;margin-top:0;">📅 Season Results</h3>
+                <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+                <table style="width:100%;min-width:400px;border-collapse:collapse;">
+                <thead><tr style="background:#f5f5f5;position:sticky;top:0;z-index:2;">
+                    <th style="padding:8px;border:1px solid #ddd;text-align:left;">Competition</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">Prog</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:center;">Rank</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:right;">Total</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:right;">Tech</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:right;">Pres</th>
+                </tr></thead><tbody>`;
+
+            // Trier chronologiquement par date réelle (saison juil 2025 – juin 2026)
+            const moisOrdre = { jan:1, fev:2, feb:2, mar:3, apr:4, avr:4, may:5, mai:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12,
+                                 janvier:1, mars:3, avril:4, juin:6, juillet:7, novembre:11, octobre:10, décembre:12 };
+            function parseMoisComp(dateStr) {
+                if (!dateStr) return 99;
+                const lower = dateStr.toLowerCase();
+                for (const [key, val] of Object.entries(moisOrdre)) {
+                    if (lower.includes(key)) {
+                        return val < 7 ? val + 12 : val; // juil-dec=7-12, jan-juin=13-18
+                    }
+                }
+                return 99;
+            }
+            const sorted = Object.values(byComp).sort((a,b) => parseMoisComp(a.comp.d) - parseMoisComp(b.comp.d));
+
+            sorted.forEach(({ comp, progs }) => {
+                const color = typeCouleur[comp.t] || '#666';
+                const sp = progs.find(p => p.res.prog === 'SP' || p.res.prog === 'PC');
+                const fs = progs.find(p => p.res.prog === 'FS' || p.res.prog === 'PL');
+                const hasTotal = sp && fs;
+
+                // Trier SP avant FS
+                progs.sort((a,b) => {
+                    const order = { SP:0, PC:0, FS:1, PL:1 };
+                    return (order[a.res.prog] || 0) - (order[b.res.prog] || 0);
+                });
+
+                // Calculer rang total SP+FS dans la compétition
+                let rangTotal = null, nbTeamsTotal = null, totalScore = null;
+                if (hasTotal) {
+                    const cat = sp.res.cat;
+                    const resCompSP = resultats.find(r => String(r.compId) === String(comp.id) && r.cat === cat && (r.prog === 'SP' || r.prog === 'PC'));
+                    const resCompFS = resultats.find(r => String(r.compId) === String(comp.id) && r.cat === cat && (r.prog === 'FS' || r.prog === 'PL'));
+                    if (resCompSP && resCompFS) {
+                        const totaux = {};
+                        resCompSP.data.equipes.forEach(e => { totaux[e.nom] = e.total; });
+                        resCompFS.data.equipes.forEach(e => { if (totaux[e.nom] !== undefined) totaux[e.nom] += e.total; });
+                        const sortedTeams = Object.entries(totaux).sort((a,b) => b[1] - a[1]);
+                        rangTotal = sortedTeams.findIndex(([n]) => n === nomEquipe) + 1;
+                        nbTeamsTotal = sortedTeams.length;
+                        totalScore = sp.eq.total + fs.eq.total;
+                    }
+                }
+
+                // Nombre de lignes total pour le rowspan Competition
+                const nbRows = progs.length + (hasTotal ? 1 : 0);
+                let firstRow = true;
+
+                // Récupérer les IDs de résultats pour voirDetailsEquipe
+                const idSP = sp ? sp.res.id : null;
+                const idFS = fs ? fs.res.id : null;
+                const safeCompId = comp.id;
+
+                // LIGNE 1 : SP+FS total en haut (si applicable)
+                if (hasTotal && rangTotal !== null) {
+                    const rClass = rangTotal === 1 ? 'rank-cell-1' : rangTotal === 2 ? 'rank-cell-2' : rangTotal === 3 ? 'rank-cell-3' : rangTotal <= 7 ? 'rank-cell-' + rangTotal : 'rank-cell-8plus';
+                    html += `<tr style="font-weight:bold;">`;
+                    html += `<td rowspan="${nbRows}" onclick="ouvrirComp('${safeCompId}')" style="padding:8px;border:1px solid #ddd;border-left:4px solid ${color};vertical-align:middle;cursor:pointer;" title="Open competition">
+                        <div style="font-weight:bold;font-size:0.9em;">${comp.n}</div>
+                        <div style="font-size:0.75em;color:#666;margin-top:2px;">📅 ${comp.d}</div>
+                        <div style="margin-top:3px;"><span style="background:${color};color:white;padding:1px 6px;border-radius:8px;font-size:0.75em;">${comp.t}</span></div>
+                    </td>`;
+                    html += `<td style="padding:8px;border:1px solid #ddd;text-align:center;"><span style="background:#667eea;color:white;padding:2px 8px;border-radius:8px;font-size:0.85em;">SP+FS</span></td>`;
+                    html += `<td class="${rClass}" style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:bold;">${rangTotal}<span style="font-size:0.75em;opacity:0.75;font-weight:normal;">/${nbTeamsTotal}</span></td>`;
+                    html += `<td class="${rClass}" onclick="voirDetailsEquipe('${nomEquipe}', '${idSP}', '${idFS}')" style="padding:8px;border:1px solid #ddd;text-align:right;font-size:1.05em;cursor:pointer;" title="See full details">${totalScore.toFixed(2)}</td>`;
+                    html += `<td style="padding:8px;border:1px solid #ddd;"></td>`;
+                    html += `<td style="padding:8px;border:1px solid #ddd;"></td>`;
+                    html += `</tr>`;
+                    firstRow = false;
+                }
+
+                // LIGNES SP puis FS
+                progs.forEach(({ res, eq }) => {
+                    const progLabel = res.prog === 'PC' ? 'SP' : res.prog === 'PL' ? 'FS' : res.prog;
+                    const bgClass = eq.rang === 1 ? 'rank-cell-1' : eq.rang === 2 ? 'rank-cell-2' : eq.rang === 3 ? 'rank-cell-3' : eq.rang <= 7 ? 'rank-cell-' + eq.rang : 'rank-cell-8plus';
+                    const detailIdSP = progLabel === 'SP' ? res.id : null;
+                    const detailIdFS = progLabel === 'FS' ? res.id : null;
+
+                    html += `<tr style="background:#fafafa;">`;
+                    if (firstRow) {
+                        // Pas de ligne total → Competition cell ici avec rowspan
+                        html += `<td rowspan="${nbRows}" onclick="ouvrirComp('${safeCompId}')" style="padding:8px;border:1px solid #ddd;border-left:4px solid ${color};vertical-align:middle;cursor:pointer;" title="Open competition">
+                            <div style="font-weight:bold;font-size:0.9em;">${comp.n}</div>
+                            <div style="font-size:0.75em;color:#666;margin-top:2px;">📅 ${comp.d}</div>
+                            <div style="margin-top:3px;"><span style="background:${color};color:white;padding:1px 6px;border-radius:8px;font-size:0.75em;">${comp.t}</span></div>
+                        </td>`;
+                        firstRow = false;
+                    }
+                    html += `<td style="padding:6px 8px;border:1px solid #ddd;text-align:center;">
+                        <span style="background:${progLabel==='SP'?'#2196F3':'#4CAF50'};color:white;padding:2px 8px;border-radius:8px;font-size:0.85em;">${progLabel}</span>
+                    </td>`;
+                    html += `<td class="${bgClass}" style="padding:6px 8px;border:1px solid #ddd;text-align:center;font-weight:bold;">${eq.rang}</td>`;
+                    html += `<td onclick="voirDetailsEquipe('${nomEquipe}', ${detailIdSP ? "'"+detailIdSP+"'" : 'null'}, ${detailIdFS ? "'"+detailIdFS+"'" : 'null'})" style="padding:6px 8px;border:1px solid #ddd;text-align:right;cursor:pointer;" title="See details">${eq.total.toFixed(2)}</td>`;
+                    html += `<td style="padding:6px 8px;border:1px solid #ddd;text-align:right;font-size:0.9em;color:#666;">${eq.tech.toFixed(2)}</td>`;
+                    html += `<td style="padding:6px 8px;border:1px solid #ddd;text-align:right;font-size:0.9em;color:#666;">${eq.pres.toFixed(2)}</td>`;
+                    html += `</tr>`;
+                });
+            });
+
+            html += `</tbody></table></div></div>`;
+            return html;
+        }
+
+        function genererSectionElementsSaison(nomEquipe, spResults, fsResults) {
+            let html = `<div style="background:white;border-radius:12px;padding:18px;margin-bottom:20px;border:2px solid #e0e0e0;">
+                <h3 style="color:#1e3c72;margin-top:0;">🎯 Best Elements of the Season</h3>`;
+
+            ['SP', 'FS'].forEach(prog => {
+                const results = prog === 'SP' ? spResults : fsResults;
+                if (results.length === 0) return;
+
+                const color = prog === 'SP' ? '#2196F3' : '#4CAF50';
+                const label = prog === 'SP' ? '📘 Short Program' : '📗 Free Skate';
+
+                // Collecter meilleurs éléments
+                const bestElements = {};
+                results.forEach(({ res, eq, comp }) => {
+                    eq.elements.forEach(el => {
+                        const key = el.type;
+                        if (!bestElements[key] || el.score > bestElements[key].score) {
+                            bestElements[key] = { ...el, compNom: comp.n, compDate: comp.d };
+                        }
+                    });
+                });
+
+                // Meilleures composantes
+                let bestCompFinal = { val:0, comp:'' }, bestPresFinal = { val:0, comp:'' }, bestSkatFinal = { val:0, comp:'' };
+                let facteur = results[0].res.data.facteur;
+                results.forEach(({ res, eq, comp }) => {
+                    facteur = res.data.facteur;
+                    if (eq.composantes) {
+                        if ((eq.composantes.compFinal||0) > bestCompFinal.val) bestCompFinal = { val: eq.composantes.compFinal, comp: comp.n };
+                        if ((eq.composantes.presFinal||0) > bestPresFinal.val) bestPresFinal = { val: eq.composantes.presFinal, comp: comp.n };
+                        if ((eq.composantes.skatFinal||0) > bestSkatFinal.val) bestSkatFinal = { val: eq.composantes.skatFinal, comp: comp.n };
+                    }
+                });
+
+                const elementsOrdonnes = Object.values(bestElements).sort((a,b) => a.type.localeCompare(b.type));
+                const techOptimal = elementsOrdonnes.reduce((s,el)=>s+el.score,0);
+                const presOptimal = (bestCompFinal.val + bestPresFinal.val + bestSkatFinal.val) * facteur;
+
+                html += `<div style="margin-bottom:20px;">
+                    <h4 style="color:${color};margin-bottom:10px;">${label}</h4>
+                    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+                    <table style="width:100%;min-width:320px;border-collapse:collapse;margin-bottom:10px;">
+                    <thead><tr style="background:#f5f5f5;">
+                        <th style="padding:7px;border:1px solid #ddd;text-align:left;">Element</th>
+                        <th style="padding:7px;border:1px solid #ddd;text-align:center;">Best Level</th>
+                        <th style="padding:7px;border:1px solid #ddd;text-align:center;">Best Score</th>
+                        <th style="padding:7px;border:1px solid #ddd;text-align:left;">At</th>
+                    </tr></thead><tbody>`;
+
+                elementsOrdonnes.forEach(el => {
+                    html += `<tr>
+                        <td style="padding:7px;border:1px solid #ddd;font-weight:bold;">${el.type}</td>
+                        <td style="padding:7px;border:1px solid #ddd;text-align:center;">${el.niveau || '-'}</td>
+                        <td style="padding:7px;border:1px solid #ddd;text-align:center;font-weight:bold;color:${color};">${el.score.toFixed(2)}</td>
+                        <td style="padding:7px;border:1px solid #ddd;font-size:0.85em;color:#666;">${el.compNom}</td>
+                    </tr>`;
+                });
+
+                html += `<tr style="background:#e8f5e9;font-weight:bold;">
+                    <td colspan="2" style="padding:7px;border:1px solid #ddd;">Best Technical Total</td>
+                    <td style="padding:7px;border:1px solid #ddd;text-align:center;color:#4CAF50;">${techOptimal.toFixed(2)}</td>
+                    <td style="padding:7px;border:1px solid #ddd;font-size:0.75em;color:#666;">if all bests same day</td>
+                </tr></tbody></table></div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:8px;">
+                    <div style="background:#f8f9ff;border:1px solid #e0e0e0;border-radius:6px;padding:8px;">
+                        <div style="font-size:0.75em;color:#666;">Best Composition</div>
+                        <div style="font-weight:bold;">${bestCompFinal.val.toFixed(2)}</div>
+                        <div style="font-size:0.75em;color:#999;">${bestCompFinal.comp}</div>
+                    </div>
+                    <div style="background:#f8f9ff;border:1px solid #e0e0e0;border-radius:6px;padding:8px;">
+                        <div style="font-size:0.75em;color:#666;">Best Presentation</div>
+                        <div style="font-weight:bold;">${bestPresFinal.val.toFixed(2)}</div>
+                        <div style="font-size:0.75em;color:#999;">${bestPresFinal.comp}</div>
+                    </div>
+                    <div style="background:#f8f9ff;border:1px solid #e0e0e0;border-radius:6px;padding:8px;">
+                        <div style="font-size:0.75em;color:#666;">Best Skating Skills</div>
+                        <div style="font-weight:bold;">${bestSkatFinal.val.toFixed(2)}</div>
+                        <div style="font-size:0.75em;color:#999;">${bestSkatFinal.comp}</div>
+                    </div>
+                    <div style="background:#fff8f0;border:2px solid ${color};border-radius:6px;padding:8px;">
+                        <div style="font-size:0.75em;color:#666;">Optimal Presentation</div>
+                        <div style="font-weight:bold;color:${color};">${presOptimal.toFixed(2)}</div>
+                        <div style="font-size:0.75em;color:#999;">factor ×${facteur}</div>
+                    </div>
+                </div>
+
+                <div style="background:#fff3e0;border:2px solid #FF9800;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:bold;">🎯 Optimal ${prog} Score</span>
+                    <span style="font-size:1.3em;font-weight:bold;color:#FF9800;">${(techOptimal+presOptimal).toFixed(2)}</span>
+                </div>
+            </div>`;
+            });
+
+            html += `</div>`;
+            return html;
+        }
+
 
         /**
          * Demande à l'utilisateur d'ajouter une équipe inconnue à la base
@@ -3108,7 +3596,6 @@ function switchSubTab(section, tab) {
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">SP</th>';
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">FS</th>';
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Total</th>';
-                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;">Detail</th>';
                 html += '</tr></thead><tbody>';
                 
                 totaux.forEach((eq, idx) => {
@@ -3134,11 +3621,10 @@ if (rang === 1) rankBadge = rang;
                     else rankBadge = rang;
                     html += `<tr class="${bgClass}">`;
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + rankBadge + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;"><strong>' + eq.nom + '</strong> (' + eq.nation + ')</td>';
-                    html += '<td class="' + pcClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.totalPC.toFixed(2) + '</td>';
-                    html += '<td class="' + plClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.totalPL.toFixed(2) + '</td>';
-                    html += '<td class="' + scoreClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.1em;">' + eq.total.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;"><button class="btn btn-small" style="background:#667eea;color:white;" onclick="voirDetailsEquipe(\'' + eq.nom + '\', \'' + resPC.id + '\', \'' + resPL.id + '\')">🔍 Details</button></td>';
+                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.05em;">' + teamLink(eq.nom) + '<span style="font-size:0.8em;font-weight:normal;opacity:0.85;"> (' + eq.nation + ')</span></td>';
+                    html += '<td class="' + pcClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', \'' + resPC.id + '\', null)" style="padding:12px;text-align:center;border:1px solid #ddd;cursor:pointer;" title="See SP details">' + eq.totalPC.toFixed(2) + '</td>';
+                    html += '<td class="' + plClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', null, \'' + resPL.id + '\')" style="padding:12px;text-align:center;border:1px solid #ddd;cursor:pointer;" title="See FS details">' + eq.totalPL.toFixed(2) + '</td>';
+                    html += '<td class="' + scoreClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', \'' + resPC.id + '\', \'' + resPL.id + '\')" style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.1em;cursor:pointer;" title="See full details">' + eq.total.toFixed(2) + '</td>';
                     html += '</tr>';
                 });
                 
@@ -3159,7 +3645,6 @@ if (rang === 1) rankBadge = rang;
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Total</th>';
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Tech</th>';
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Prés</th>';
-                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;">Detail</th>';
                 html += '</tr></thead><tbody>';
                 
                 const equipesPC = [...resPC.data.equipes].sort((a, b) => b.total - a.total);
@@ -3192,11 +3677,10 @@ if (rang === 1) rankBadge = rang;
                     
                     html += `<tr class="${bgClass}">`;
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + rankBadge + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;"><strong>' + eq.nom + '</strong> (' + eq.nation + ')</td>';
-                    html += '<td class="' + scoreClass + '" style="padding:12px;text-align:center;font-weight:bold;font-size:1.2em;border:1px solid #ddd;">' + eq.total.toFixed(2) + '</td>';
+                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.05em;">' + teamLink(eq.nom) + '<span style="font-size:0.8em;font-weight:normal;opacity:0.85;"> (' + eq.nation + ')</span></td>';
+                    html += '<td class="' + scoreClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', \'' + resPC.id + '\', null)" style="padding:12px;text-align:center;font-weight:bold;font-size:1.2em;border:1px solid #ddd;cursor:pointer;" title="See details">' + eq.total.toFixed(2) + '</td>';
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.tech.toFixed(2) + '</td>';
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.pres.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;"><button class="btn btn-small" style="background:#2196F3;color:white;" onclick="voirDetailsEquipe(\'' + eq.nom + '\', \'' + resPC.id + '\', null)">🔍 Details</button></td>';
                     html += '</tr>';
                 });
                 
@@ -3217,7 +3701,6 @@ if (rang === 1) rankBadge = rang;
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Total</th>';
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Tech</th>';
                 html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;white-space:nowrap;">Prés</th>';
-                html += '<th style="padding:8px 6px;text-align:center;border:1px solid #ddd;">Detail</th>';
                 html += '</tr></thead><tbody>';
                 
                 const equipesPL = [...resPL.data.equipes].sort((a, b) => b.total - a.total);
@@ -3248,11 +3731,10 @@ if (rang === 1) rankBadge = rang;
                     // Calculer le rang en Prés
                     html += `<tr class="${bgClass}">`;
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + rankBadge + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;"><strong>' + eq.nom + '</strong> (' + eq.nation + ')</td>';
-                    html += '<td class="' + scoreClass + '" style="padding:12px;text-align:center;font-weight:bold;font-size:1.1em;border:1px solid #ddd;">' + eq.total.toFixed(2) + '</td>';
+                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.05em;">' + teamLink(eq.nom) + '<span style="font-size:0.8em;font-weight:normal;opacity:0.85;"> (' + eq.nation + ')</span></td>';
+                    html += '<td class="' + scoreClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', null, \'' + resPL.id + '\')" style="padding:12px;text-align:center;font-weight:bold;font-size:1.1em;border:1px solid #ddd;cursor:pointer;" title="See details">' + eq.total.toFixed(2) + '</td>';
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.tech.toFixed(2) + '</td>';
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.pres.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;"><button class="btn btn-small" style="background:#4CAF50;color:white;" onclick="voirDetailsEquipe(\'' + eq.nom + '\', null, \'' + resPL.id + '\')">🔍 Details</button></td>';
                     html += '</tr>';
                 });
                 
@@ -3321,7 +3803,7 @@ if (rang === 1) rankBadge = rang;
                 
                 html += `<tr>`;
                 html += `<td class="${bgClass}" style="padding:6px 4px;border:1px solid #ddd;text-align:center;position:sticky;left:0;z-index:1;width:22px;font-size:0.85em;">${rang}</td>`;
-                html += `<td class="${bgClass}" style="padding:4px 4px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:100px;max-width:100px;word-break:break-word;overflow-wrap:break-word;hyphens:auto;text-align:left;font-size:0.82em;"><strong>${shortName(eq.nom)}</strong></td>`;
+                html += `<td class="${bgClass}" style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:100px;max-width:100px;word-break:break-word;overflow-wrap:break-word;hyphens:auto;text-align:center;font-size:0.9em;font-weight:bold;">${teamLinkShort(eq.nom)}</td>`;
                 
                 // Pour chaque juge
                 for (let j = 0; j < nbJuges; j++) {
@@ -3466,7 +3948,7 @@ if (rang === 1) rankBadge = rang;
                 
                 html += `<tr>`;
                 html += `<td class="${bgClass}" style="padding:6px 4px;border:1px solid #ddd;text-align:center;position:sticky;left:0;z-index:1;width:22px;font-size:0.85em;">${rang}</td>`;
-                html += `<td class="${bgClass}" style="padding:4px 4px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:100px;max-width:100px;word-break:break-word;overflow-wrap:break-word;hyphens:auto;text-align:left;font-size:0.82em;"><strong>${shortName(eq.nom)}</strong></td>`;
+                html += `<td class="${bgClass}" style="padding:6px 4px;border:1px solid #ddd;position:sticky;left:22px;z-index:1;width:100px;max-width:100px;word-break:break-word;overflow-wrap:break-word;hyphens:auto;text-align:center;font-size:0.9em;font-weight:bold;">${teamLinkShort(eq.nom)}</td>`;
                 
                 elementsOrdonnes.forEach(type => {
                     // Pour ME/Pa, chercher ME ou Pa selon ce que l'équipe a
@@ -3582,7 +4064,7 @@ if (rang === 1) rankBadge = rang;
                 
                 // En-tête avec rangs technique et présentation
                 html += `<div class="team-header-detailed">
-                    <div class="team-title-detailed">${displayRang}. ${team.nom} (${team.nation})</div>
+                    <div class="team-title-detailed"><span onclick="afficherPageEquipe(this.dataset.nom)" data-nom="${team.nom}" style="cursor:pointer;color:#fff;text-decoration:underline;">${displayRang}. ${team.nom}</span> (${team.nation})</div>
                     <div class="team-scores">
                         <div class="score-box">
                             <div class="label">Total Score</div>
@@ -4171,7 +4653,7 @@ if (rang === 1) rankBadge = rang;
                 html += `
                     <div class="team-section">
                         <div class="team-header-detailed">
-                            <div class="team-title-detailed">${displayRang}. ${team.nom} (${team.nation})</div>
+                            <div class="team-title-detailed"><span onclick="afficherPageEquipe(this.dataset.nom)" data-nom="${team.nom}" style="cursor:pointer;color:#fff;text-decoration:underline;">${displayRang}. ${team.nom}</span> (${team.nation})</div>
                             <div class="team-scores">
                                 <div class="score-box">
                                     <div class="label">Total Score</div>
@@ -4443,7 +4925,7 @@ if (rang === 1) rankBadge = rang;
         }
         
         // ============================================
-        // SYSTÈME DE FUSION SUPPRIMÉ (v110)
+        // SYSTÈME DE FUSION SUPPRIMÉ (v121)
         // Remplacé par la détection intelligente + ajout d'équipes inconnues
         // ============================================
         
@@ -5476,7 +5958,7 @@ if (rang === 1) rankBadge = rang;
                 
                 html += `<tr style="border-bottom:1px solid #eee;border-left: 4px solid ${badgeColor};">`;
                 html += `<td style="padding:12px;font-weight:bold;">${idx + 1}</td>`;
-                html += `<td style="padding:12px;"><strong>${r.equipe}</strong></td>`;
+                html += `<td style="padding:12px;">${teamLink(r.equipe)}</td>`;
                 html += `<td style="padding:12px;">${r.nation}</td>`;
                 html += `<td style="padding:12px;"><span style="background:${badgeColor};color:white;padding:2px 8px;border-radius:8px;font-size:0.8em;">${r.compType}</span> ${r.compNom}</td>`;
                 html += `<td style="padding:12px;">${r.cat}</td>`;
