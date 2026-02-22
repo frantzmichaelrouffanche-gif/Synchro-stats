@@ -1716,7 +1716,9 @@
                 results.forEach(({ res, eq }) => {
                     facteur = res.data.facteur; // en général constant par programme
                     eq.elements.forEach(el => {
-                        const key = el.type;
+                        // Normaliser les types NHE : "NHE+s" et "NHEB+s" sont la même famille
+                        let key = el.type;
+                        if (key === 'NHE+s') key = 'NHEB+s';
                         if (!bestElements[key] || el.score > bestElements[key].score) {
                             bestElements[key] = { ...el, compNom: '', compDate: '' };
                         }
