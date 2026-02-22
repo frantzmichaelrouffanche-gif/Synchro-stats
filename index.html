@@ -1960,7 +1960,8 @@
                 const bestElements = {};
                 results.forEach(({ res, eq, comp }) => {
                     eq.elements.forEach(el => {
-                        const key = el.type;
+                        let key = el.type;
+                        if (key === 'NHE+s') key = 'NHEB+s'; // normalisation : même famille d'éléments
                         if (!bestElements[key] || el.score > bestElements[key].score) {
                             bestElements[key] = { ...el, compNom: comp.n, compDate: comp.d };
                         }
@@ -3706,8 +3707,8 @@ if (rang === 1) rankBadge = rang;
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + rankBadge + '</td>';
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.05em;">' + teamLink(eq.nom) + '<span style="font-size:0.8em;font-weight:normal;opacity:0.85;"> (' + eq.nation + ')</span></td>';
                     html += '<td class="' + scoreClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', \'' + resPC.id + '\', null)" style="padding:12px;text-align:center;font-weight:bold;font-size:1.2em;border:1px solid #ddd;cursor:pointer;" title="See details">' + eq.total.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.tech.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.pres.toFixed(2) + '</td>';
+                    html += '<td class="' + techClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.tech.toFixed(2) + '</td>';
+                    html += '<td class="' + presClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.pres.toFixed(2) + '</td>';
                     html += '</tr>';
                 });
                 
@@ -3760,8 +3761,8 @@ if (rang === 1) rankBadge = rang;
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + rankBadge + '</td>';
                     html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;font-weight:bold;font-size:1.05em;">' + teamLink(eq.nom) + '<span style="font-size:0.8em;font-weight:normal;opacity:0.85;"> (' + eq.nation + ')</span></td>';
                     html += '<td class="' + scoreClass + '" onclick="voirDetailsEquipe(\'' + eq.nom + '\', null, \'' + resPL.id + '\')" style="padding:12px;text-align:center;font-weight:bold;font-size:1.1em;border:1px solid #ddd;cursor:pointer;" title="See details">' + eq.total.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.tech.toFixed(2) + '</td>';
-                    html += '<td style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.pres.toFixed(2) + '</td>';
+                    html += '<td class="' + techClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.tech.toFixed(2) + '</td>';
+                    html += '<td class="' + presClass + '" style="padding:12px;text-align:center;border:1px solid #ddd;">' + eq.pres.toFixed(2) + '</td>';
                     html += '</tr>';
                 });
                 
