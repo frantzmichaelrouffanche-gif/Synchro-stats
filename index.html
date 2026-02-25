@@ -6627,7 +6627,7 @@ if (rang === 1) rankBadge = rang;
                 const r = idx + 1;
                 html += `<tr>
                     <td class="${rankClass(r)}" style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:bold;">${r}</td>
-                    <td style="padding:8px;border:1px solid #ddd;font-weight:600;">${d.nom}</td>
+                    <td style="padding:8px;border:1px solid #ddd;font-weight:600;"><span onclick="afficherPageEquipe(this.dataset.nom)" data-nom="${d.nom}" style="cursor:pointer;color:#1e3c72;text-decoration:none;">${d.nom}</span></td>
                     <td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:0.85em;">${d.nation}</td>
                     <td style="padding:8px;border:1px solid #ddd;text-align:right;">${d.bestSP !== null ? d.bestSP.toFixed(2) : '<span style="color:#aaa;">—</span>'}</td>
                     <td style="padding:8px;border:1px solid #ddd;text-align:right;">${d.bestFS !== null ? d.bestFS.toFixed(2) : '<span style="color:#aaa;">—</span>'}</td>
@@ -6653,7 +6653,7 @@ if (rang === 1) rankBadge = rang;
                 const r = idx + 1;
                 html += `<tr>
                     <td class="${rankClass(r)}" style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:bold;">${r}</td>
-                    <td style="padding:8px;border:1px solid #ddd;font-weight:600;">${d.nom}</td>
+                    <td style="padding:8px;border:1px solid #ddd;font-weight:600;"><span onclick="afficherPageEquipe(this.dataset.nom)" data-nom="${d.nom}" style="cursor:pointer;color:#1e3c72;text-decoration:none;">${d.nom}</span></td>
                     <td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:0.85em;">${d.nation}</td>
                     <td style="padding:8px;border:1px solid #ddd;text-align:right;">${d.optSP !== null ? d.optSP.toFixed(2) : '<span style="color:#aaa;">—</span>'}</td>
                     <td style="padding:8px;border:1px solid #ddd;text-align:right;">${d.optFS !== null ? d.optFS.toFixed(2) : '<span style="color:#aaa;">—</span>'}</td>
